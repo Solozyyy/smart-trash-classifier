@@ -1,4 +1,4 @@
-EcoSort — Phân loại rác thải bằng Computer Vision
+Smart Trash Classifier - Phân loại rác thải bằng Computer Vision
 
 Dự án phân loại ảnh rác thải thành các nhóm (nhựa, giấy, kim loại, thủy tinh, rác hữu cơ...) sử dụng transfer learning với ResNet18. Mục tiêu: xây dựng một hệ thống nhận diện rác đơn giản, có thể ứng dụng cho các trạm phân loại rác tự động hoặc app hướng dẫn phân loại rác tại nhà.
 
