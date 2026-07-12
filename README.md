@@ -327,3 +327,41 @@ pip install -r requirements.txt
 ```env
 # Environment
 ENVIRONMENT=colab  # hoặc "local"
+
+
+---
+
+## License
+
+MIT License - Xem file [LICENSE](LICENSE) để biết thêm.
+
+---
+
+## Author
+
+- **DKhoa**
+- GitHub: [@Solozyyy](https://github.com/Solozyyy)
+
+---
+
+## Acknowledgments
+
+- Dataset từ Kaggle community
+- ResNet50 architecture từ Microsoft Research
+- TensorFlow/Keras team
+- Google Colab cho free GPU
+
+---
+
+## Project Stats
+
+- **Total Training Time**: ~2-3 hours (Colab T4 GPU)
+- **Model Size**: ~98MB (best_model.h5)
+- **Inference Speed**: ~50ms/image (GPU), ~200ms/image (CPU)
+- **Dataset Size**: ~5GB (sau khi balance)
+
+---
+
+** Nếu thấy project hữu ích, hãy cho 1 star nhé!**
+
+---
