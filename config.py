@@ -1,136 +1,176 @@
 """
 Configuration loader for Smart Trash Classifier
-Automatically detects Colab vs Local environment and loads appropriate paths
+Loads settings from config.yaml and auto-detects environment
 """
 
 import os
+import yaml
 from pathlib import Path
 
 
 class Config:
     """
-    Configuration class that auto-detects environment and loads settings
+    Configuration class that loads from config.yaml
+    Auto-detects Colab vs Local environment
     
     Usage:
         from config import config
         
         print(config.DATA_DIR)
-        print(config.TARGET_COUNT)
+        print(config.BATCH_SIZE)
+        config.print_config()
     """
     
-    def __init__(self):
-        # Detect environment (Colab or Local)
+    def __init__(self, config_file='config.yaml'):
+        """Initialize configuration"""
+        # Detect environment
         self.IS_COLAB = self._detect_colab()
         
-        # Load environment variables from .env file
-        self._load_env_file()
+        # Load config from YAML
+        self.cfg = self._load_yaml(config_file)
         
         # Setup paths based on environment
-        if self.IS_COLAB:
-            self._setup_colab_paths()
-        else:
-            self._setup_local_paths()
+        self._setup_paths()
         
-        # Load training hyperparameters
+        # Load training config
         self._load_training_config()
+        
+        # Load model config
+        self._load_model_config()
         
         print(f"✅ Config loaded: {'Colab' if self.IS_COLAB else 'Local'} environment")
     
     def _detect_colab(self):
         """Auto-detect if running on Google Colab"""
-        try:
-            from google.colab import drive
-            return True
-        except ImportError:
-            return False
+        return 'COLAB_GPU' in os.environ or 'COLAB_TPU_ADDR' in os.environ
     
-    def _load_env_file(self):
-        """Load variables from .env file (if exists)"""
-        env_path = Path('.env')
+    def _load_yaml(self, config_file):
+        """Load configuration from YAML file"""
+        config_path = Path(config_file)
         
-        if not env_path.exists():
-            print("⚠️  File .env không tồn tại. Sử dụng giá trị mặc định.")
-            print("💡 Tạo file .env từ .env.example: cp .env.example .env")
-            return
+        if not config_path.exists():
+            raise FileNotFoundError(
+                f"Config file not found: {config_file}\n"
+                "Please ensure config.yaml exists in the project root."
+            )
         
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                # Skip empty lines and comments
-                if not line or line.startswith('#'):
-                    continue
-                
-                # Parse KEY=VALUE
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    os.environ[key.strip()] = value.strip()
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
     
-    def _setup_colab_paths(self):
-        """Setup paths for Google Colab environment"""
-        self.DRIVE_PATH = os.getenv('COLAB_DRIVE_PATH', '/content/drive/MyDrive/data.zip')
-        self.DATA_DIR = os.getenv('COLAB_DATA_DIR', '/content/data_extracted/')
-        self.BALANCED_DIR = os.getenv('COLAB_BALANCED_DIR', '/content/balanced_data/')
-        self.WEIGHTS_DIR = os.getenv('COLAB_WEIGHTS_DIR', '/content/weights/')
+    def _setup_paths(self):
+        """Setup paths based on environment (Colab or Local)"""
+        env_key = 'colab' if self.IS_COLAB else 'local'
+        paths = self.cfg['paths'][env_key]
         
-        # Create directories if not exist
-        for directory in [self.DATA_DIR, self.BALANCED_DIR, self.WEIGHTS_DIR]:
-            os.makedirs(directory, exist_ok=True)
-    
-    def _setup_local_paths(self):
-        """Setup paths for Local environment"""
-        project_root = os.getenv('LOCAL_PROJECT_ROOT', os.getcwd())
+        # Main paths
+        if self.IS_COLAB:
+            self.DRIVE_ZIP_PATH = paths['drive_zip']
+            self.DATA_EXTRACTED_DIR = paths['data_extracted']
+            self.BALANCED_DATA_DIR = paths['balanced_data']
+            self.TRAIN_DATA_DIR = paths['train_data']
+            self.VAL_DATA_DIR = paths['val_data']
+            self.TEST_DATA_DIR = paths['test_data']
+            self.MODEL_SAVE_PATH = paths['model_save']
+            self.PLOTS_DIR = paths['plots']
+        else:
+            self.DATA_ROOT = paths['data_root']
+            self.DATA_EXTRACTED_DIR = paths['data_extracted']
+            self.BALANCED_DATA_DIR = paths['balanced_data']
+            self.TRAIN_DATA_DIR = paths['train_data']
+            self.VAL_DATA_DIR = paths['val_data']
+            self.TEST_DATA_DIR = paths['test_data']
+            self.MODEL_SAVE_PATH = paths['model_save']
+            self.PLOTS_DIR = paths['plots']
         
-        # Validate project root
-        if project_root == 'your_project_path_here':
-            print("⚠️  Cảnh báo: LOCAL_PROJECT_ROOT chưa được cấu hình!")
-            print("📝 Vui lòng chỉnh sửa file .env và đổi LOCAL_PROJECT_ROOT")
-            project_root = os.getcwd()
-        
-        self.DATA_DIR = os.path.join(project_root, os.getenv('LOCAL_DATA_DIR', 'data'))
-        self.BALANCED_DIR = os.path.join(project_root, os.getenv('LOCAL_BALANCED_DIR', 'data_balanced'))
-        self.WEIGHTS_DIR = os.path.join(project_root, os.getenv('LOCAL_WEIGHTS_DIR', 'weights'))
-        
-        # Create directories if not exist
-        for directory in [self.BALANCED_DIR, self.WEIGHTS_DIR]:
-            os.makedirs(directory, exist_ok=True)
-        
-        # Check if data directory exists
-        if not os.path.exists(self.DATA_DIR):
-            print(f"⚠️  Cảnh báo: Không tìm thấy thư mục data tại {self.DATA_DIR}")
-            print("📝 Vui lòng giải nén data vào thư mục này")
+        # Backward compatibility aliases
+        self.DATA_DIR = self.DATA_EXTRACTED_DIR
+        self.BALANCED_DIR = self.BALANCED_DATA_DIR
+        self.WEIGHTS_DIR = os.path.dirname(self.MODEL_SAVE_PATH) or './weights'
     
     def _load_training_config(self):
         """Load training hyperparameters"""
-        self.TARGET_COUNT = int(os.getenv('TARGET_IMAGES_PER_CLASS', 2000))
-        self.BATCH_SIZE = int(os.getenv('BATCH_SIZE', 32))
-        self.EPOCHS = int(os.getenv('EPOCHS', 15))
-        self.LEARNING_RATE = float(os.getenv('LEARNING_RATE', 0.001))
-        self.IMAGE_SIZE = int(os.getenv('IMAGE_SIZE', 224))
+        train_cfg = self.cfg['training']
+        dataset_cfg = self.cfg['dataset']
         
-        # Model config
-        self.MODEL_NAME = os.getenv('MODEL_NAME', 'resnet18')
-        self.PRETRAINED = os.getenv('PRETRAINED', 'true').lower() == 'true'
-        self.RANDOM_SEED = int(os.getenv('RANDOM_SEED', 42))
+        # Training params
+        self.BATCH_SIZE = train_cfg['batch_size']
+        self.EPOCHS = train_cfg['epochs']
+        self.LEARNING_RATE = train_cfg['learning_rate']
+        
+        # Dataset params
+        self.TARGET_COUNT = dataset_cfg['target_samples_per_class']
+        self.NUM_CLASSES = dataset_cfg['num_classes']
+        self.CLASSES = dataset_cfg['classes']
+        
+        # Data split
+        self.TRAIN_RATIO = dataset_cfg['split']['train']
+        self.VAL_RATIO = dataset_cfg['split']['val']
+        self.TEST_RATIO = dataset_cfg['split']['test']
+        
+        # Random seed
+        self.RANDOM_SEED = self.cfg['random']['seed']
+    
+    def _load_model_config(self):
+        """Load model configuration"""
+        model_cfg = self.cfg['model']
+        
+        self.MODEL_NAME = model_cfg['architecture']
+        self.INPUT_SHAPE = tuple(model_cfg['input_shape'])
+        self.IMAGE_SIZE = self.INPUT_SHAPE[0]  # Backward compatibility
+        self.PRETRAINED_WEIGHTS = model_cfg['pretrained_weights']
+        self.INCLUDE_TOP = model_cfg['include_top']
+    
+    def get_augmentation_config(self, mode='train'):
+        """
+        Get data augmentation configuration
+        
+        Args:
+            mode: 'train' or 'balancing'
+        
+        Returns:
+            dict: Augmentation parameters
+        """
+        return self.cfg['augmentation'][mode]
+    
+    def get_callbacks_config(self):
+        """Get training callbacks configuration"""
+        return self.cfg['training']['callbacks']
     
     def print_config(self):
         """Print all configuration values"""
-        print("\n" + "="*50)
-        print("📋 CONFIGURATION SUMMARY")
-        print("="*50)
-        print(f"Environment:     {'Google Colab' if self.IS_COLAB else 'Local'}")
-        print(f"Data Dir:        {self.DATA_DIR}")
-        print(f"Balanced Dir:    {self.BALANCED_DIR}")
-        print(f"Weights Dir:     {self.WEIGHTS_DIR}")
-        print(f"\nTraining Config:")
-        print(f"  Model:         {self.MODEL_NAME}")
-        print(f"  Pretrained:    {self.PRETRAINED}")
-        print(f"  Target Images: {self.TARGET_COUNT}")
-        print(f"  Batch Size:    {self.BATCH_SIZE}")
-        print(f"  Epochs:        {self.EPOCHS}")
-        print(f"  Learning Rate: {self.LEARNING_RATE}")
-        print(f"  Image Size:    {self.IMAGE_SIZE}")
-        print(f"  Random Seed:   {self.RANDOM_SEED}")
-        print("="*50 + "\n")
+        print("\n" + "="*60)
+        print(" CONFIGURATION SUMMARY")
+        print("="*60)
+        print(f"Environment:        {'Google Colab' if self.IS_COLAB else 'Local'}")
+        
+        print(f"\n Paths:")
+        if self.IS_COLAB:
+            print(f"  Drive ZIP:        {self.DRIVE_ZIP_PATH}")
+        print(f"  Data Extracted:   {self.DATA_EXTRACTED_DIR}")
+        print(f"  Balanced Data:    {self.BALANCED_DATA_DIR}")
+        print(f"  Train Data:       {self.TRAIN_DATA_DIR}")
+        print(f"  Val Data:         {self.VAL_DATA_DIR}")
+        print(f"  Test Data:        {self.TEST_DATA_DIR}")
+        print(f"  Model Save:       {self.MODEL_SAVE_PATH}")
+        print(f"  Plots:            {self.PLOTS_DIR}")
+        
+        print(f"\n Dataset:")
+        print(f"  Classes:          {self.NUM_CLASSES}")
+        print(f"  Target/Class:     {self.TARGET_COUNT}")
+        print(f"  Split:            {self.TRAIN_RATIO:.0%} / {self.VAL_RATIO:.0%} / {self.TEST_RATIO:.0%}")
+        
+        print(f"\n Model:")
+        print(f"  Architecture:     {self.MODEL_NAME}")
+        print(f"  Input Shape:      {self.INPUT_SHAPE}")
+        print(f"  Pretrained:       {self.PRETRAINED_WEIGHTS}")
+        
+        print(f"\n Training:")
+        print(f"  Batch Size:       {self.BATCH_SIZE}")
+        print(f"  Epochs:           {self.EPOCHS}")
+        print(f"  Learning Rate:    {self.LEARNING_RATE}")
+        print(f"  Random Seed:      {self.RANDOM_SEED}")
+        
+        print("="*60 + "\n")
 
 
 # Global config instance
@@ -140,3 +180,10 @@ config = Config()
 # Quick test
 if __name__ == "__main__":
     config.print_config()
+    
+    # Test augmentation config
+    print("\n🔄 Augmentation Config (train):")
+    print(config.get_augmentation_config('train'))
+    
+    print("\n📞 Callbacks Config:")
+    print(config.get_callbacks_config())
