@@ -24,11 +24,8 @@ Thumbs.db
 
 # Notebooks (working files - not for Git)
 notebooks/garbage_classifier.ipynb
-notebooks/01_evaldata.ipynb
 
-src/
-notebooks/
+
 plan.md
 README_CONFIG.md
 SETUP.md
-config.py
