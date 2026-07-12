@@ -1,0 +1,182 @@
+# Smart Trash Classifier - Configuration
+# This file contains all configurable parameters for the project
+
+# Environment
+environment:
+  name: "smart-trash-classifier"
+  version: "1.0.0"
+  platform: "google-colab"  # Options: google-colab, local
+
+# Data Paths
+paths:
+  # Google Colab paths
+  colab:
+    drive_zip: "/content/drive/MyDrive/data.zip"
+    data_extracted: "/content/data_extracted/"
+    balanced_data: "/content/balanced_data/"
+    train_data: "/content/train_data/"
+    val_data: "/content/val_data/"
+    test_data: "/content/test_data/"
+    model_save: "best_model.h5"
+    plots: "evaluation_plots"
+  
+  # Local paths (update these for your local environment)
+  local:
+    data_root: "./data/"
+    data_extracted: "./data/extracted/"
+    balanced_data: "./data/balanced/"
+    train_data: "./data/train/"
+    val_data: "./data/val/"
+    test_data: "./data/test/"
+    model_save: "./models/best_model.h5"
+    plots: "./results/plots/"
+
+# Dataset Configuration
+dataset:
+  # 12 waste categories
+  classes:
+    - battery
+    - biological
+    - brown-glass
+    - cardboard
+    - clothes
+    - green-glass
+    - metal
+    - paper
+    - plastic
+    - shoes
+    - trash
+    - white-glass
+  
+  num_classes: 12
+  target_samples_per_class: 2000
+  
+  # Data split ratios (must sum to 1.0)
+  split:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+
+# Data Augmentation
+augmentation:
+  # Training augmentation
+  train:
+    rotation_range: 20
+    width_shift_range: 0.1
+    height_shift_range: 0.1
+    shear_range: 0.1
+    zoom_range: 0.1
+    horizontal_flip: true
+    fill_mode: "nearest"
+  
+  # Balancing augmentation (more aggressive)
+  balancing:
+    rotation_range: 20
+    width_shift_range: 0.1
+    height_shift_range: 0.1
+    shear_range: 0.1
+    zoom_range: 0.1
+    horizontal_flip: true
+    fill_mode: "nearest"
+
+# Model Configuration
+model:
+  architecture: "ResNet50"  # Options: ResNet50, MobileNetV2, EfficientNetB0
+  input_shape: [224, 224, 3]
+  pretrained_weights: "imagenet"
+  include_top: false
+  
+  # Custom classification head
+  custom_layers:
+    - type: "GlobalAveragePooling2D"
+    - type: "Flatten"
+    - type: "Dense"
+      units: 512
+      activation: "relu"
+    - type: "Dropout"
+      rate: 0.5
+    - type: "Dense"
+      units: 256
+      activation: "relu"
+    - type: "Dropout"
+      rate: 0.5
+    - type: "Dense"
+      units: 12  # num_classes
+      activation: "softmax"
+
+# Training Configuration
+training:
+  batch_size: 32
+  epochs: 20
+  learning_rate: 0.0001
+  optimizer: "adam"
+  loss: "categorical_crossentropy"
+  metrics:
+    - "accuracy"
+  
+  # Callbacks
+  callbacks:
+    early_stopping:
+      enabled: true
+      monitor: "val_loss"
+      patience: 5
+      restore_best_weights: true
+    
+    model_checkpoint:
+      enabled: true
+      monitor: "val_accuracy"
+      mode: "max"
+      save_best_only: true
+    
+    reduce_lr:
+      enabled: false
+      monitor: "val_loss"
+      factor: 0.5
+      patience: 3
+      min_lr: 0.00001
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1-score"
+  
+  plots:
+    - "confusion_matrix"
+    - "classification_report"
+    - "roc_curves"
+    - "training_history"
+    - "sample_predictions"
+  
+  num_sample_predictions: 10
+
+# Random Seeds (for reproducibility)
+random:
+  seed: 42
+  numpy_seed: 42
+  tensorflow_seed: 42
+
+# Logging
+logging:
+  level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  save_logs: true
+  log_file: "training.log"
+
+# Hardware Configuration
+hardware:
+  gpu:
+    enabled: true
+    memory_growth: true  # Allow dynamic GPU memory allocation
+    device: 0  # GPU device ID
+  
+  mixed_precision:
+    enabled: false  # Use mixed precision training (faster on modern GPUs)
+
+# Misc
+misc:
+  verbose: 1  # 0 = silent, 1 = progress bar, 2 = one line per epoch
+  save_format: "h5"  # Options: h5, tf
+  overwrite: true  # Overwrite existing files
