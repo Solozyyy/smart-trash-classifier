@@ -1,124 +1,329 @@
-Smart Trash Classifier - Phân loại rác thải bằng Computer Vision
+# Smart Trash Classifier — Smart Trash Classifier
 
-Dự án phân loại ảnh rác thải thành các nhóm (nhựa, giấy, kim loại, thủy tinh, rác hữu cơ...) sử dụng transfer learning với ResNet18. Mục tiêu: xây dựng một hệ thống nhận diện rác đơn giản, có thể ứng dụng cho các trạm phân loại rác tự động hoặc app hướng dẫn phân loại rác tại nhà.
+> Phân loại rác thải tự động bằng Deep Learning & Computer Vision
 
-1. Bài toán
+Dự án phân loại ảnh rác thải thành **12 loại khác nhau** sử dụng **ResNet50** với Transfer Learning. Hệ thống có thể nhận diện loại rác từ ảnh chụp, hỗ trợ trạm phân loại tự động hoặc ứng dụng di động.
 
-Phân loại rác thủ công tốn thời gian và dễ sai sót. Dự án này xây một model deep learning có thể nhận diện loại rác từ một bức ảnh, hỗ trợ phân loại tự động hoặc giáo dục người dùng cách phân loại đúng.
+---
 
-Input: Ảnh chụp một vật thể rác
-Output: Nhãn loại rác (VD: nhựa, giấy, kim loại...) kèm độ tin cậy (confidence)
+## 12 Loại Rác Được Phân Loại
 
-2. Dataset
+| # | Loại rác | English | # | Loại rác | English |
+|---|----------|---------|---|----------|---------|
+| 1 | Pin | Battery | 7 | Kim loại | Metal |
+| 2 | Hữu cơ | Biological | 8 | Giấy | Paper |
+| 3 | Thủy tinh nâu | Brown Glass | 9 | Nhựa | Plastic |
+| 4 | Bìa carton | Cardboard | 10 | Giày dép | Shoes |
+| 5 | Quần áo | Clothes | 11 | Rác khác | Trash |
+| 6 | Thủy tinh xanh | Green Glass | 12 | Thủy tinh trắng | White Glass |
 
-Tên: Garbage Classification Dataset
-Nguồn: Kaggle — https://www.kaggle.com/datasets/mostafaabla/garbage-classification
-Mô tả: Bộ ảnh rác đã gán nhãn theo nhiều loại, phổ biến gồm:
+---
 
+## Quy Trình Thực Hiện
 
-Cardboard (bìa carton)
-Glass (thủy tinh)
-Metal (kim loại)
-Paper (giấy)
-Plastic (nhựa)
-Trash (rác không tái chế được)
+### **Bước 1: EDA - Exploratory Data Analysis**
+- Mount Google Drive và giải nén dataset
+- Khám phá phân bố dữ liệu (12 classes)
+- Phát hiện class imbalance (clothes: 5000+, battery: 600+)
+- Visualize samples từ mỗi class
 
+### **Bước 2: Data Balancing**
+- **Target**: 2000 ảnh/class
+- **Undersampling**: Giảm `clothes` từ 5000+ → 2000
+- **Augmentation**: Tăng các class thiếu lên 2000
+  - Rotation: ±20°
+  - Width/Height shift: ±10%
+  - Shear: ±10%
+  - Zoom: ±10%
+  - Horizontal flip: Random
 
-Số lượng: Vài nghìn ảnh, chia đều tương đối giữa các lớp (kiểm tra kỹ số lượng ảnh mỗi lớp khi tải về, vì có thể mất cân bằng - class imbalance)
+### **Bước 3: Data Splitting**
+- **Train**: 70% (~16,800 ảnh)
+- **Validation**: 15% (~3,600 ảnh)
+- **Test**: 15% (~3,600 ảnh)
+- Sử dụng `train_test_split` từ sklearn
 
-Cách tải:
+### **Bước 4: Data Preprocessing**
+- Resize về **224x224** (input size cho ResNet)
+- Normalize bằng `resnet_preprocess_input`
+- **Train augmentation**:
+  - Rotation: ±15°
+  - Width/Height shift: ±10%
+  - Shear: ±10%
+  - Zoom: ±10%
+  - Horizontal flip
+  - Fill mode: nearest
+- **Val/Test**: Chỉ normalize (không augment)
 
-bashpip install kaggle
-# Upload file kaggle.json (API key từ Kaggle account settings) vào thư mục ~/.kaggle/
-kaggle datasets download -d mostafaabla/garbage-classification
-unzip garbage-classification.zip -d garbage_data
+### **Bước 5: Model Architecture**
+- **Base Model**: ResNet50 (pretrained ImageNet)
+  - *Note*: Dùng ResNet50 
+  - Freeze toàn bộ base layers (không train lại)
+- **Custom Head**:
+  ```
+  GlobalAveragePooling2D → Flatten
+  → Dense(512, ReLU) → Dropout(0.5)
+  → Dense(256, ReLU) → Dropout(0.5)
+  → Dense(12, Softmax)
+  ```
+- **Total params**: ~25M (23M frozen, 2M trainable)
 
-3. Các bước thực hiện
+### **Bước 6: Training**
+- **Optimizer**: Adam
+- **Loss**: Categorical Crossentropy
+- **Metrics**: Accuracy
+- **Batch size**: 32
+- **Epochs**: 20 (với Early Stopping)
+- **Callbacks**:
+  - ModelCheckpoint: Lưu best model theo `val_accuracy`
+  - EarlyStopping: Patience=5, restore best weights
 
-Bước 1: Chuẩn bị môi trường
+### **Bước 7: Evaluation**
+- **Test Accuracy**: _%_ (sẽ cập nhật sau khi train)
+- **Confusion Matrix**: Phân tích lỗi giữa các classes
+- **Classification Report**: Precision, Recall, F1-Score
+- **ROC Curve & AUC**: Đánh giá từng class
+- **Training History**: Loss & Accuracy curves
 
+### **Bước 8: Inference Demo**
+- Dự đoán trên ảnh ngẫu nhiên từ test set
+- Hiển thị ảnh + True label + Predicted label
+- Confidence score cho mỗi prediction
 
-Dùng Google Colab (free GPU: Runtime > Change runtime type > GPU)
-Cài đặt: torch, torchvision, matplotlib, kaggle
+---
 
+## Dataset
 
-Bước 2: Tải và khám phá dữ liệu (EDA)
+### **Thông Tin Chung**
+- **Nguồn**: Custom dataset (từ Kaggle)
+- **Tổng số ảnh ban đầu**: ~15,000 ảnh
+- **Sau khi balance**: ~24,000 ảnh (2000/class × 12)
+- **Số classes**: 12 loại rác
+- **Format**: JPG images
+- **Phân chia**:
+  - Train: 70% (~16,800 ảnh)
+  - Validation: 15% (~3,600 ảnh)
+  - Test: 15% (~3,600 ảnh)
 
+### **Phân Bố Ban Đầu (Imbalanced)**
+| Class | Số lượng | Xử lý |
+|-------|----------|-------|
+| Clothes | 5000+ | Undersampling → 2000 |
+| Shoes | ~2000 | Giữ nguyên |
+| Biological | ~1000 | Augmentation → 2000 |
+| Battery | ~600 | Augmentation → 2000 |
+| Others | 700-1000 | Augmentation → 2000 |
 
-Tải dataset theo hướng dẫn ở mục 2
-Đếm số ảnh mỗi lớp, xem có mất cân bằng không
-Xem thử vài ảnh mẫu mỗi lớp để hiểu dữ liệu
+---
 
+## Model Architecture Details
 
-Bước 3: Tiền xử lý & Augmentation
+### **ResNet50 Base (Frozen)**
+```python
+Input: (224, 224, 3)
+↓
+ResNet50 (pretrained ImageNet, frozen)
+↓
+GlobalAveragePooling2D
+↓
+Flatten
+```
 
+### **Custom Classification Head (Trainable)**
+```python
+Dense(512, activation='relu')
+↓
+Dropout(0.5)
+↓
+Dense(256, activation='relu')
+↓
+Dropout(0.5)
+↓
+Dense(12, activation='softmax')  # 12 classes
+```
 
-Resize ảnh về 224x224 (kích thước chuẩn cho ResNet)
-Augmentation: lật ngang, xoay nhẹ, để tăng đa dạng dữ liệu train
-Chuẩn hóa (normalize) theo mean/std của ImageNet vì dùng model pretrained
+### **Training Configuration**
+```python
+OPTIMIZER = 'adam'
+LOSS = 'categorical_crossentropy'
+METRICS = ['accuracy']
+BATCH_SIZE = 32
+EPOCHS = 20
+EARLY_STOPPING_PATIENCE = 5
+IMAGE_SIZE = (224, 224)
+```
 
+---
 
-Bước 4: Xây dựng model (Transfer Learning)
+## Cài Đặt & Sử Dụng
 
+### **Yêu Cầu Hệ Thống**
+- Python 3.8+
+- TensorFlow 2.x
+- Google Colab (free T4 GPU) **khuyến nghị**
+- RAM: 12GB+ (cho training)
+- Storage: 5GB+ (cho dataset)
 
-Dùng ResNet18 pretrained trên ImageNet
-Đóng băng (freeze) các layer gốc, chỉ train lại layer phân loại cuối
-Lý do: dataset nhỏ, transfer learning giúp học nhanh và tránh overfitting
+### **1. Clone Repository**
+```bash
+git clone https://github.com/your-username/smart-trash-classifier.git
+cd smart-trash-classifier
+```
 
+### **2. Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-Bước 5: Huấn luyện (Training)
+### **3. Chuẩn Bị Dataset**
 
+**Trên Google Colab**:
+1. Upload `data.zip` lên Google Drive: `/MyDrive/data.zip`
+2. Đảm bảo cấu trúc:
+   ```
+   data.zip
+   ├── battery/
+   ├── biological/
+   ├── brown-glass/
+   └── ... (12 folders)
+   ```
 
-Chia dữ liệu train/validation (80/20)
-Train khoảng 10-15 epoch, theo dõi accuracy và loss trên tập validation
-Lưu lại model có validation accuracy tốt nhất
+**Trên Local**:
+1. Giải nén `data.zip` vào thư mục `data/`
+2. Cấu trúc tương tự
 
+### **4. Chạy Training**
 
-Bước 6: Đánh giá kết quả
+**Option A: Chạy từng notebook riêng (Khuyến nghị học tập)**
+```
+01_eda.ipynb              → Khám phá dữ liệu
+02_data_balancing.ipynb   → Cân bằng dữ liệu
+03_train_resnet50.ipynb   → Training model (sẽ tạo)
+04_evaluation.ipynb       → Đánh giá kết quả (sẽ tạo)
+```
 
+**Option B: Chạy notebook đầy đủ (Nhanh)**
+```
+garbage_classifier_full.ipynb  → Full pipeline (18 cells)
+```
 
-Vẽ biểu đồ accuracy/loss theo epoch
-Xem confusion matrix để biết model hay nhầm lẫn giữa lớp nào với lớp nào (VD: nhựa và giấy dễ nhầm)
-Tính thêm precision/recall/F1 cho từng lớp, đặc biệt quan trọng nếu dataset mất cân bằng
+**Trên Google Colab**:
+1. Mở Colab: https://colab.research.google.com/
+2. File → Open notebook → GitHub
+3. Paste: `https://github.com/your-username/smart-trash-classifier`
+4. Chọn notebook và Run All
 
+---
 
-Bước 7: Demo trực quan
+## Cấu Trúc Project
 
+```
+smart-trash-classifier/
+├── notebooks/
+│   ├── garbage_classifier_full.ipynb     # Full pipeline (18 cells)
+│   ├── 01_eda.ipynb                      # EDA only
+│   ├── 02_data_balancing.ipynb           # Data preprocessing
+│   ├── 03_train_resnet50.ipynb           # Training (TODO)
+│   └── 04_evaluation.ipynb               # Evaluation (TODO)
+├── src/
+│   ├── model.py                          # Model definition
+│   ├── dataset.py                        # Dataset utilities
+│   └── utils.py                          # Helper functions
+├── evaluation_plots/                     # Generated plots
+│   ├── training_history.png
+│   ├── confusion_matrix.png
+│   ├── roc_curves.png
+│   └── classification_report.txt
+├── weights/
+│   └── best_model.h5                     # Trained model (download separately)
+├── config.py                             # Configuration loader
+├── .env.example                          # Environment template
+├── requirements.txt                      # Python dependencies
+├── .gitignore
+└── README.md
+```
 
-Dùng Gradio hoặc Streamlit để tạo giao diện đơn giản: upload ảnh → model dự đoán loại rác
-Giúp người xem (kể cả người không biết code) thấy được kết quả thực tế
+---
 
+##  Download Model & Results
 
-Bước 8: Viết báo cáo/README
+### **Trained Model Weights**
+File `best_model.h5` quá lớn để push lên GitHub. Tải tại:
 
+- **Google Drive**: [Download best_model.h5](#) _(Chưa có - sẽ update sau khi train)_
+- **GitHub Release**: [v1.0.0](#) _(Chưa có)_
 
-Ghi rõ: vấn đề, dataset, kiến trúc model, kết quả, hạn chế, hướng cải thiện
-Đây là phần quan trọng nhất khi apply — thể hiện khả năng tư duy và trình bày, không chỉ code chạy được
+**Cách sử dụng**:
+```bash
+# 1. Tải file best_model.h5
+# 2. Đặt vào thư mục weights/
+mv ~/Downloads/best_model.h5 ./weights/
 
+# 3. Load model trong Python
+from tensorflow.keras.models import load_model
+model = load_model('weights/best_model.h5')
+```
 
-#4. Kết quả (điền sau khi train xong)
+### **Evaluation Plots**
+Các biểu đồ được tạo tự động sau khi training và lưu vào `evaluation_plots/`:
+- `training_history.png` - Loss & Accuracy curves
+- `confusion_matrix.png` - Confusion matrix
+- `roc_curves.png` - ROC curves cho 12 classes
+- `classification_report.txt` - Precision, Recall, F1
 
+---
 
-Validation accuracy: ...
-Model hay nhầm lẫn giữa các lớp: ...
-Nhận xét: ...
+## Kết Quả Training
 
+_(Sẽ được cập nhật sau khi hoàn thành training trên Colab)_
 
-#5. Hướng cải thiện tiếp theo (tùy chọn, làm nếu có thời gian)
+### **Model Performance**
+| Metric | Train | Validation | Test |
+|--------|-------|------------|------|
+| Accuracy | _% | _% | _% |
+| Loss | _ | _ | _ |
+| F1-Score (Macro) | _ | _ | _ |
 
+### **Per-Class Performance**
+| Class | Precision | Recall | F1-Score | Support |
+|-------|-----------|--------|----------|---------|
+| Battery | _ | _ | _ | _ |
+| Biological | _ | _ | _ | _ |
+| ... | _ | _ | _ | _ |
 
-Fine-tune sâu hơn (unfreeze thêm layer của ResNet thay vì chỉ train layer cuối)
-Thử model khác (EfficientNet, MobileNet) để so sánh
-Xử lý class imbalance bằng weighted loss hoặc oversampling
-Deploy thành web app thật, hoặc app mobile đơn giản
-Mở rộng thêm loại rác (rác điện tử, pin...) nếu tìm được dataset phù hợp
+### **Confusion Matrix**
+![Confusion Matrix](evaluation_plots/confusion_matrix.png)
 
+### **Training History**
+![Training Curves](evaluation_plots/training_history.png)
 
-#6. Công nghệ sử dụng
+### **ROC Curves**
+![ROC Curves](evaluation_plots/roc_curves.png)
 
+---
 
-Python, PyTorch, torchvision
-ResNet18 (transfer learning)
-Google Colab (training môi trường free GPU)
-Gradio (demo)
+## Requirements
 
+```txt
+tensorflow>=2.10.0
+numpy>=1.21.0
+pandas>=1.3.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+scikit-learn>=1.0.0
+Pillow>=8.0.0
+```
+
+Cài đặt:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Configuration
+
+### **File `.env.example`**
+```env
+# Environment
+ENVIRONMENT=colab  # hoặc "local"
