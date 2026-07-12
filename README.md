@@ -248,10 +248,7 @@ smart-trash-classifier/
 ##  Download Model & Results
 
 ### **Trained Model Weights**
-File `best_model.h5` quá lớn để push lên GitHub. Tải tại:
-
-- **Google Drive**: [Download best_model.h5](#) _(Chưa có - sẽ update sau khi train)_
-- **GitHub Release**: [v1.0.0](#) _(Chưa có)_
+File `best_model.h5` sẽ được tạo sau khi train thành công
 
 **Cách sử dụng**:
 ```bash
@@ -275,30 +272,20 @@ Các biểu đồ được tạo tự động sau khi training và lưu vào `ev
 
 ## Kết Quả Training
 
-_(Sẽ được cập nhật sau khi hoàn thành training trên Colab)_
-
-### **Model Performance**
-| Metric | Train | Validation | Test |
-|--------|-------|------------|------|
-| Accuracy | _% | _% | _% |
-| Loss | _ | _ | _ |
-| F1-Score (Macro) | _ | _ | _ |
-
-### **Per-Class Performance**
-| Class | Precision | Recall | F1-Score | Support |
-|-------|-----------|--------|----------|---------|
-| Battery | _ | _ | _ | _ |
-| Biological | _ | _ | _ | _ |
-| ... | _ | _ | _ | _ |
-
 ### **Confusion Matrix**
-![Confusion Matrix](evaluation_plots/confusion_matrix.png)
+<img width="714" height="620" alt="image" src="https://github.com/user-attachments/assets/6b8e0520-d55c-41a1-b340-b73924b1a612" />
+
 
 ### **Training History**
-![Training Curves](evaluation_plots/training_history.png)
+<img width="823" height="326" alt="image" src="https://github.com/user-attachments/assets/340008c2-8127-43c6-8a8f-8d2c16c3018a" />
+
 
 ### **ROC Curves**
-![ROC Curves](evaluation_plots/roc_curves.png)
+<img width="741" height="585" alt="image" src="https://github.com/user-attachments/assets/cdc2f536-c148-4672-afe2-f9a5f0e6f11c" />
+
+
+### **F1 score per class**
+<img width="824" height="406" alt="image" src="https://github.com/user-attachments/assets/b189e642-0bd8-4827-a7e0-75cc9d1b5984" />
 
 ---
 
