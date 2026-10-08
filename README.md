@@ -36,7 +36,6 @@ Dự án phân loại ảnh rác thải thành **12 loại khác nhau** sử d�
   - Shear: ±10%
   - Zoom: ±10%
   - Horizontal flip: Random
-
 ### **Bước 3: Data Splitting**
 - **Train**: 70% (~16,800 ảnh)
 - **Validation**: 15% (~3,600 ảnh)
