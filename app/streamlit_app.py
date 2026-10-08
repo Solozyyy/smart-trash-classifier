@@ -8,11 +8,14 @@ import sys
 from PIL import Image
 import streamlit as st
 
-# Ensure repository root is on sys.path for src imports
+# Ensure repository root and app directory are on sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
+APP_DIR = os.path.abspath(os.path.dirname(__file__))
+for p in [REPO_ROOT, APP_DIR]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
+from download_model import ensure_model_exists
 from src.dataset import CLASSES
 from src.model import load_trained_model, predict_image, generate_gradcam_heatmap
 from src.utils import RECYCLING_INFO, create_gradcam_overlay, evaluate_uncertainty
@@ -63,8 +66,10 @@ st.markdown("""
 
 @st.cache_resource
 def get_model():
-    """Cached loader for trained ResNet50 model"""
-    return load_trained_model()
+    """Cached loader for trained ResNet50 model with cloud auto-download fallback"""
+    with st.spinner("⏳ Đang chuẩn bị mô hình AI (lần đầu có thể mất 1-2 phút)..."):
+        model_path = ensure_model_exists()
+        return load_trained_model(model_path)
 
 
 def main():
