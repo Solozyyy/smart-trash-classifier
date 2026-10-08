@@ -4,6 +4,7 @@ Recycling database, Grad-CAM visualization, and utility helpers.
 
 from typing import Dict, Any, Tuple
 import numpy as np
+import matplotlib as mpl
 import matplotlib.cm as cm
 from PIL import Image
 
@@ -174,8 +175,11 @@ def create_gradcam_overlay(
     )
     heatmap_resized = np.array(heatmap_pil) / 255.0
 
-    # Colorize heatmap using matplotlib colormap
-    color_mapper = cm.get_cmap(colormap)
+    # Colorize heatmap using matplotlib colormap (compatible with matplotlib 3.7+ and 3.9+)
+    try:
+        color_mapper = mpl.colormaps[colormap]
+    except Exception:
+        color_mapper = cm.get_cmap(colormap)
     colored_heatmap = color_mapper(heatmap_resized)[:, :, :3]  # Strip alpha channel
     colored_heatmap = np.uint8(255 * colored_heatmap)
 
