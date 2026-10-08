@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # FastAPI REST API Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: ecosort_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TF_ENABLE_ONEDNN_OPTS=0
+    volumes:
+      - ./weights:/app/weights:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit Web App Frontend
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: ecosort_web
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - TF_ENABLE_ONEDNN_OPTS=0
+    volumes:
+      - ./weights:/app/weights:ro
+    depends_on:
+      api:
+        condition: service_healthy
