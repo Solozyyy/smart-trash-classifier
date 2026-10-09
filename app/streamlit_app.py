@@ -34,7 +34,8 @@ from download_model import ensure_model_exists
 from src.dataset import CLASSES
 from src.model import load_trained_model, predict_image, generate_gradcam_heatmap
 from src.utils import RECYCLING_INFO, create_gradcam_overlay, evaluate_uncertainty
-from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids
+from opentelemetry import trace
+from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids, flush_tracing
 from api.logger import logger, log_prediction_audit, APP_LOG_FILE, PREDICTION_LOG_FILE
 from api.metrics import record_inference_metrics
 
@@ -254,6 +255,8 @@ def main():
 
             # Start OpenTelemetry Root Trace targeting Phoenix Cloud
             with trace_span("streamlit.classify_trash", {
+                "openinference.span.kind": "chain",
+                "input.value": f"Image: {filename} ({image.width}x{image.height}px, {filesize} bytes)",
                 "request.id": request_id,
                 "file.name": filename,
                 "client.type": "streamlit_web"
@@ -322,6 +325,17 @@ def main():
                             "client_ip": "streamlit-client",
                         }
                     )
+
+                # Set OpenInference formatted output & OK status for Phoenix
+                viet_name_out = RECYCLING_INFO.get(predicted_class, {}).get('vietnamese_name', predicted_class)
+                root_span.set_attribute(
+                    "output.value",
+                    f"Predicted: {predicted_class} ({confidence*100:.1f}%) | Tiếng Việt: {viet_name_out} | Tin cậy: {is_certain}"
+                )
+                root_span.set_status(trace.Status(trace.StatusCode.OK))
+
+            # Force flush spans immediately to Arize Phoenix Cloud
+            flush_tracing()
 
             # Display Results
             col_img, col_pred = st.columns([1, 1], gap="medium")
