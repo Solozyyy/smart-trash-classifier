@@ -9,10 +9,10 @@ import sys
 import json
 import time
 import uuid
+from datetime import datetime, timezone, timedelta
 from PIL import Image
 import streamlit as st
 import pandas as pd
-import psutil
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -148,8 +148,22 @@ def get_model():
         return load_trained_model(model_path)
 
 
+def format_timestamp_vn(iso_ts: str) -> str:
+    """Convert ISO timestamp to Vietnam local time (UTC+7) formatted string"""
+    if not iso_ts:
+        return ""
+    try:
+        clean_ts = iso_ts.rstrip("Z").split(".")[0]
+        dt = datetime.fromisoformat(clean_ts)
+        # Shift UTC to Vietnam timezone UTC+7
+        dt_vn = dt + timedelta(hours=7)
+        return dt_vn.strftime("%H:%M • %d/%m/%Y")
+    except Exception:
+        return iso_ts[:16].replace("T", " ")
+
+
 def load_predictions_history(limit: int = 50) -> pd.DataFrame:
-    """Read local prediction audit log into a pandas DataFrame"""
+    """Read local prediction audit log into a user-friendly DataFrame"""
     if not os.path.exists(PREDICTION_LOG_FILE):
         return pd.DataFrame()
     records = []
@@ -159,13 +173,21 @@ def load_predictions_history(limit: int = 50) -> pd.DataFrame:
                 if line.strip():
                     try:
                         record = json.loads(line)
+                        raw_cls = record.get("output", {}).get("predicted_class", "unknown")
+                        cls_info = RECYCLING_INFO.get(raw_cls, {})
+                        vn_name = cls_info.get("vietnamese_name", raw_cls.capitalize())
+                        bin_color = cls_info.get("bin_color", "Thùng tái chế")
+                        category = cls_info.get("category", "Rác sinh hoạt")
+                        conf = record.get("output", {}).get("confidence", 0.0)
+
                         records.append({
-                            "Thời gian (UTC)": record.get("timestamp", "")[:19].replace("T", " "),
-                            "Ảnh": record.get("input", {}).get("filename", "unknown"),
-                            "Loại rác": record.get("output", {}).get("predicted_class", "unknown"),
-                            "Độ tin cậy": f"{record.get('output', {}).get('confidence', 0.0)*100:.1f}%",
-                            "Tự tin": "✅ Có" if record.get("output", {}).get("is_confident") else "⚠️ Thấp",
-                            "Độ trễ (ms)": record.get("output", {}).get("inference_time_ms", 0.0),
+                            "Thời gian": format_timestamp_vn(record.get("timestamp", "")),
+                            "Loại rác": vn_name,
+                            "Thùng rác quy định": bin_color,
+                            "Nhóm phân loại": category,
+                            "Độ tin cậy": f"{conf * 100:.1f}%",
+                            "_raw_class": raw_cls,
+                            "_category": category,
                         })
                     except Exception:
                         pass
@@ -175,18 +197,6 @@ def load_predictions_history(limit: int = 50) -> pd.DataFrame:
         return df
     except Exception:
         return pd.DataFrame()
-
-
-def load_recent_api_logs(limit: int = 40) -> list:
-    """Read recent lines from api.log"""
-    if not os.path.exists(APP_LOG_FILE):
-        return []
-    try:
-        with open(APP_LOG_FILE, "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f if line.strip()]
-            return lines[-limit:]
-    except Exception:
-        return []
 
 
 def main():
@@ -234,10 +244,10 @@ def main():
         st.markdown("---")
         st.caption("EcoSort AI System • Smart Waste Classifier")
 
-    # Main Tabs: 1. Classifier, 2. Stats & History
-    tab_classifier, tab_monitoring = st.tabs([
+    # Main Tabs: 1. Classifier, 2. Green Journal
+    tab_classifier, tab_journal = st.tabs([
         "♻️ Phân Loại Rác & XAI",
-        "📈 Thống Kê & Lịch Sử"
+        "🌱 Nhật Ký Sống Xanh"
     ])
 
     # Load model
@@ -475,75 +485,65 @@ def main():
                     st.markdown(f"- **{cls_val['vietnamese_name']}** (`{cls_key}`)")
 
     # =========================================================================
-    # TAB 2: THỐNG KÊ & LỊCH SỬ
+    # TAB 2: NHẬT KÝ SỐNG XANH
     # =========================================================================
-    with tab_monitoring:
-        st.markdown("### 📈 Thống Kê & Lịch Sử Hoạt Động")
-        st.caption("Tổng hợp thống kê và lịch sử các lượt phân loại rác thải đã thực hiện.")
+    with tab_journal:
+        st.markdown("### 🌱 Nhật Ký Sống Xanh (Lịch Sử Của Bạn)")
+        st.caption("Theo dõi thói quen phân loại rác thải và hành trình chung tay bảo vệ môi trường của bạn.")
 
-        # 1. Load history DataFrame
         df_history = load_predictions_history(limit=100)
 
         if not df_history.empty:
-            # Metrics Row
-            total_preds = len(df_history)
-            confident_count = (df_history["Tự tin"] == "✅ Có").sum()
-            confident_pct = (confident_count / total_preds) * 100 if total_preds > 0 else 0
-            avg_latency = df_history["Độ trễ (ms)"].mean() if total_preds > 0 else 0
+            total_items = len(df_history)
 
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("🎯 Tổng lượt phân loại", total_preds)
-            m2.metric("✅ Tỷ lệ tự tin", f"{confident_pct:.1f}%")
-            m3.metric("⚡ Độ trễ TB (Latency)", f"{avg_latency:.1f} ms")
-            m4.metric("⚠️ Cảnh báo không chắc chắn", f"{total_preds - confident_count} lượt")
+            # Find top trash type
+            top_series = df_history["Loại rác"].value_counts()
+            top_trash = top_series.index[0] if not top_series.empty else "N/A"
+            top_count = top_series.iloc[0] if not top_series.empty else 0
+
+            # Calculate recyclable percentage
+            recyclable_count = sum(
+                1 for cat in df_history.get("_category", [])
+                if any(kw in str(cat).lower() for kw in ["tái chế", "hữu cơ", "carton", "giấy"])
+            )
+            recycle_pct = (recyclable_count / total_items) * 100 if total_items > 0 else 0
+
+            # Friendly Metrics Cards
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                st.metric("🎯 Đã phân loại", f"{total_items} món rác")
+            with col_m2:
+                pct_str = f"chiếm {top_count/total_items*100:.0f}%" if total_items > 0 else ""
+                st.metric("🏆 Xuất hiện nhiều nhất", top_trash, f"{top_count} lần ({pct_str})")
+            with col_m3:
+                st.metric("♻️ Tỷ lệ tái chế / hữu cơ", f"{recycle_pct:.1f}%")
 
             st.markdown("---")
 
-            # Charts Row
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("##### 📈 Phân bố các loại rác đã nhận diện")
-                class_counts = df_history["Loại rác"].value_counts()
-                st.bar_chart(class_counts)
+            # Chart
+            st.markdown("##### 📊 Thống kê các nhóm rác bạn hay gặp:")
+            st.bar_chart(df_history["Loại rác"].value_counts())
 
-            with c2:
-                st.markdown("##### ⏱️ Thời gian phản hồi suy luận (Latency ms)")
-                latency_series = df_history[["Độ trễ (ms)"]].reset_index(drop=True)
-                st.line_chart(latency_series)
-
-            # History Table
+            # Table
             st.markdown("---")
-            st.markdown("##### 📋 Lịch sử phân loại gần nhất")
+            st.markdown("##### 📋 Chi tiết các lần phân loại gần nhất:")
+            display_cols = ["Thời gian", "Loại rác", "Thùng rác quy định", "Nhóm phân loại", "Độ tin cậy"]
             st.dataframe(
-                df_history,
+                df_history[display_cols],
                 use_container_width=True,
                 hide_index=True
             )
-        else:
-            st.info("Chưa có lượt dự đoán nào được ghi nhận. Hãy qua Tab 1 để tải ảnh phân loại rác!")
 
-        # 2. System Hardware & Diagnostic (collapsed for admin)
-        with st.expander("🛠️ Chuẩn đoán & Thông tin Kỹ thuật Máy chủ", expanded=False):
-            try:
-                proc = psutil.Process()
-                mem_mb = proc.memory_info().rss / (1024 * 1024)
-                cpu_pct = proc.cpu_percent(interval=None)
-                total_sys_ram = psutil.virtual_memory().percent
-            except Exception:
-                mem_mb, cpu_pct, total_sys_ram = 0, 0, 0
-
-            h1, h2, h3 = st.columns(3)
-            h1.metric("Bộ nhớ RAM Process", f"{mem_mb:.1f} MB")
-            h2.metric("Mức chiếm CPU Process", f"{cpu_pct:.1f}%")
-            h3.metric("RAM Hệ thống", f"{total_sys_ram:.1f}%")
-
+            # Green Eco Tip
             st.markdown("---")
-            log_lines = load_recent_api_logs(limit=30)
-            if log_lines:
-                for line in reversed(log_lines):
-                    st.code(line, language="json")
-            else:
-                st.caption("Chưa có log trong logs/api.log")
+            st.success("""
+            💡 **Mẹo sống xanh từ EcoSort:**
+            - **Rác tái chế (Nhựa, Kim loại, Hộp sữa):** Hãy tráng sạch và để ráo nước trước khi bỏ vào thùng tái chế để bảo vệ chất lượng vật liệu tái chế.
+            - **Pin & Rác điện tử:** Tuyệt đối không bỏ chung vào thùng rác gia đình. Hãy gom vào hộp riêng và mang đến các điểm thu gom siêu thị/trường học.
+            - **Rác hữu cơ:** Có thể tận dụng bã cà phê và vỏ hoa quả làm phân bón tự nhiên cho cây cảnh trong nhà!
+            """)
+        else:
+            st.info("👋 Bạn chưa phân loại món rác nào. Hãy chuyển sang **Tab 1** để chụp hoặc tải ảnh rác đầu tiên nhé!")
 
     # Footer
     st.markdown("---")
