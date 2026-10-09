@@ -88,53 +88,47 @@ setup_tracing(
 
 # Streamlit Page Config
 st.set_page_config(
-    page_title="EcoSort AI - Waste Classifier & Observability",
-    page_icon="♻️",
+    page_title="EcoSort AI - Phân Loại Rác Thông Minh",
+    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling (Theme-Adaptive)
+# Custom Styling (Soft Light Green Palette)
 st.markdown("""
     <style>
     .main-header {
-        font-size: 2.6rem;
-        color: #2E7D32;
+        font-size: 2.3rem;
+        color: #2D6A4F;
         text-align: center;
         font-weight: 700;
         margin-bottom: 0.2rem;
+        letter-spacing: -0.3px;
     }
     .sub-header {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         text-align: center;
-        opacity: 0.85;
+        color: #52796F;
         margin-bottom: 1.5rem;
     }
     .prediction-box-certain {
-        padding: 1.5rem;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+        padding: 1.4rem;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #40916C 0%, #52B788 100%);
         color: white !important;
         margin: 1rem 0;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 15px rgba(64, 145, 108, 0.2);
     }
     .prediction-box-uncertain {
-        padding: 1.5rem;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #d39e00 0%, #e0a800 100%);
-        color: white !important;
+        padding: 1.4rem;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #D4A373 0%, #E7C8A0 100%);
+        color: #3D342B !important;
         margin: 1rem 0;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 15px rgba(212, 163, 115, 0.2);
     }
-    .trace-badge {
-        background: rgba(0, 128, 128, 0.08);
-        border: 1px solid rgba(0, 128, 128, 0.3);
-        border-radius: 8px;
-        padding: 0.7rem 1rem;
-        margin: 0.8rem 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+    div[data-testid="stMetricValue"] {
+        color: #2D6A4F !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -200,7 +194,7 @@ def load_predictions_history(limit: int = 50) -> pd.DataFrame:
 
 
 def main():
-    st.markdown('<p class="main-header">♻️ EcoSort AI - Smart Trash Classifier</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">EcoSort AI - Smart Trash Classifier</p>', unsafe_allow_html=True)
     st.markdown(
         '<p class="sub-header">Phân loại rác thải tự động • Hướng dẫn xử lý & tái chế • Giải thích AI (Grad-CAM)</p>',
         unsafe_allow_html=True
@@ -208,7 +202,7 @@ def main():
 
     # Sidebar settings and info
     with st.sidebar:
-        st.header("⚙️ Cấu hình Nhận diện")
+        st.header("Cấu hình Nhận diện")
         confidence_threshold = st.slider(
             "Ngưỡng tin cậy tối thiểu (Uncertainty Threshold)",
             min_value=0.40,
@@ -219,7 +213,7 @@ def main():
         )
 
         enable_gradcam = st.checkbox(
-            "🔥 Bật Explainable AI (Grad-CAM Heatmap)",
+            "Bật Grad-CAM (Heatmap giải thích AI)",
             value=True,
             help="Hiển thị vùng ảnh mà mô hình tích chập tập trung quan sát."
         )
@@ -234,7 +228,7 @@ def main():
         )
 
         st.markdown("---")
-        st.header("📊 Thông tin Mô hình")
+        st.header("Thông tin Mô hình")
         st.write("""
         - **Kiến trúc:** ResNet50 (Transfer Learning)
         - **Độ chính xác:** ~93.63% (12 nhóm rác)
@@ -246,37 +240,37 @@ def main():
 
     # Main Tabs: 1. Classifier, 2. Green Journal
     tab_classifier, tab_journal = st.tabs([
-        "♻️ Phân Loại Rác & XAI",
-        "🌱 Nhật Ký Sống Xanh"
+        "Phân Loại Rác & Grad-CAM",
+        "Nhật Ký Phân Loại"
     ])
 
     # Load model
     try:
-        with st.spinner("Đang nạp mô hình Deep Learning..."):
+        with st.spinner("Đang nạp mô hình AI..."):
             model = get_model()
     except Exception as e:
-        st.error(f"❌ Không thể tải mô hình: {str(e)}")
+        st.error(f"Không thể tải mô hình: {str(e)}")
         st.stop()
 
     # =========================================================================
     # TAB 1: PHÂN LOẠI RÁC & XAI
     # =========================================================================
     with tab_classifier:
-        st.markdown("### 📥 Chọn phương thức cung cấp ảnh")
+        st.markdown("### Chọn phương thức cung cấp ảnh")
 
         st.info("""
-        📸 **Mẹo chụp ảnh để AI nhận diện chuẩn xác nhất:**
-        - 🔍 **Chụp cận cảnh:** Đưa vật thể lại gần sao cho rác chiếm phần lớn (**60 – 70%**) khung hình.
-        - 🧹 **Hạn chế nền rối:** Đặt vật thể trên mặt bàn hoặc sàn trơn, tránh để lẫn nhiều đồ đạc khác vào khung hình.
-        - ✋ **Tránh che khuất:** Nếu cầm trên tay, hạn chế để các ngón tay che lấp các đặc điểm nhận dạng của vật thể.
-        - 💡 **Đủ ánh sáng:** Giữ camera ổn định, chụp ở nơi đủ sáng, tránh ảnh bị mờ hoặc ngược sáng.
-        """, icon="💡")
+        **Lưu ý để nhận diện chính xác nhất:**
+        - **Chụp cận cảnh:** Đưa vật thể lại gần sao cho rác chiếm phần lớn (**60 – 70%**) khung hình.
+        - **Hạn chế nền rối:** Đặt vật thể trên mặt bàn hoặc sàn trơn, tránh để lẫn đồ đạc khác vào khung hình.
+        - **Tránh che khuất:** Nếu cầm trên tay, hạn chế để các ngón tay che lấp đặc điểm nhận dạng của vật thể.
+        - **Đủ ánh sáng:** Giữ camera ổn định, chụp ở nơi đủ sáng, tránh ảnh bị mờ hoặc ngược sáng.
+        """)
 
-        input_tab1, input_tab2 = st.tabs(["📁 Tải ảnh từ thiết bị (Upload File)", "📷 Chụp trực tiếp bằng Camera"])
+        input_tab1, input_tab2 = st.tabs(["Tải ảnh từ thiết bị (Upload)", "Chụp trực tiếp bằng Camera"])
 
         image_source = None
         with input_tab1:
-            st.caption("👉 *Nên chọn ảnh chụp cận cảnh, góc nhìn rõ nét của vật thể.*")
+            st.caption("*Nên chọn ảnh chụp cận cảnh, góc nhìn rõ nét của vật thể.*")
             uploaded_file = st.file_uploader(
                 "Kéo & thả ảnh rác thải vào đây (JPG, JPEG, PNG)",
                 type=['jpg', 'jpeg', 'png'],
@@ -286,7 +280,7 @@ def main():
                 image_source = uploaded_file
 
         with input_tab2:
-            st.caption("👉 *Đưa vật thể lại gần, căn giữa khung hình camera và bấm nút chụp.*")
+            st.caption("*Đưa vật thể lại gần, căn giữa khung hình camera và bấm nút chụp.*")
             camera_file = st.camera_input(
                 "Chụp ảnh vật thể rác qua Camera / Webcam",
                 key="camera_input",
@@ -398,37 +392,37 @@ def main():
                 st.image(image, use_container_width=True, caption=f"Kích thước gốc: {image.size[0]}x{image.size[1]}px")
 
             with col_pred:
-                st.markdown("#### 🎯 Kết quả phân loại")
+                st.markdown("#### Kết quả nhận diện")
 
                 box_class = "prediction-box-certain" if is_certain else "prediction-box-uncertain"
                 viet_name = RECYCLING_INFO.get(predicted_class, {}).get('vietnamese_name', predicted_class)
 
                 st.markdown(f"""
                 <div class="{box_class}">
-                    <div style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Loại rác dự đoán</div>
-                    <h2 style="margin: 0.3rem 0; font-size: 2.2rem; color: white;">{viet_name}</h2>
-                    <div style="font-size: 1.1rem; opacity: 0.95; color: white;">Tên quốc tế: <b>{predicted_class.upper()}</b></div>
-                    <h3 style="margin: 0.5rem 0 0 0; color: white;">Độ tin cậy: {confidence*100:.2f}%</h3>
+                    <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">Loại rác dự đoán</div>
+                    <h2 style="margin: 0.2rem 0; font-size: 2.1rem; color: white;">{viet_name}</h2>
+                    <div style="font-size: 1rem; opacity: 0.95; color: white;">Tên quốc tế: <b>{predicted_class.upper()}</b></div>
+                    <h3 style="margin: 0.4rem 0 0 0; color: white;">Độ tin cậy: {confidence*100:.1f}%</h3>
                 </div>
                 """, unsafe_allow_html=True)
 
                 if not is_certain:
-                    st.warning(f"⚠️ **Cảnh báo độ tin cậy thấp:** {uncertainty_msg}")
+                    st.warning(f"Cảnh báo độ tin cậy thấp: {uncertainty_msg}")
                 else:
-                    st.success("✅ Mô hình tự tin với kết quả nhận diện này.")
+                    st.success("Mô hình tự tin với kết quả nhận diện này.")
 
-                st.markdown("##### 📊 Top 3 lớp có xác suất cao nhất:")
+                st.markdown("##### Top 3 lớp có xác suất cao nhất:")
                 for i, (cls_name, conf) in enumerate(zip(top_classes, top_confidences), 1):
                     vn_label = RECYCLING_INFO.get(cls_name, {}).get('vietnamese_name', cls_name)
-                    st.write(f"**{i}. {vn_label}** (`{cls_name}`): **{conf*100:.2f}%**")
+                    st.write(f"**{i}. {vn_label}** (`{cls_name}`): **{conf*100:.1f}%**")
                     st.progress(float(conf))
 
-                st.caption(f"⚡ Thời gian suy luận: **{inf_time:.1f} ms**")
+                st.caption(f"Thời gian suy luận: **{inf_time:.1f} ms**")
 
             # Grad-CAM Section
             if enable_gradcam and overlay_img is not None:
                 st.markdown("---")
-                st.markdown("### 🔥 Giải thích AI bằng Grad-CAM (Visual Interpretability)")
+                st.markdown("### Giải thích trực quan bằng Grad-CAM")
 
                 cam_options = {}
                 for i, (cls_name, conf) in enumerate(zip(top_classes, top_confidences), 1):
@@ -437,7 +431,7 @@ def main():
                     cam_options[label_text] = (cls_name, CLASSES.index(cls_name))
 
                 selected_cam_label = st.radio(
-                    "🔍 Chọn góc nhìn phân tích theo lớp:",
+                    "Góc nhìn phân tích theo lớp:",
                     options=list(cam_options.keys()),
                     index=0,
                     horizontal=True
@@ -461,24 +455,24 @@ def main():
 
             # Recycling Information Guide
             st.markdown("---")
-            st.markdown("### ♻️ Hướng dẫn Xử lý & Tái chế Rác thải")
+            st.markdown("### Hướng dẫn xử lý & tái chế rác thải")
             info = RECYCLING_INFO.get(predicted_class, {})
             rec_col1, rec_col2 = st.columns(2, gap="medium")
 
             with rec_col1:
                 with st.container(border=True):
-                    st.markdown("#### 📌 Phân loại")
+                    st.markdown("#### Phân loại")
                     st.markdown(f"**{info.get('category', 'N/A')}**")
                     st.markdown("---")
-                    st.markdown("#### 🗑️ Thùng rác quy định")
+                    st.markdown("#### Thùng rác quy định")
                     st.markdown(f"**{info.get('bin_color', 'N/A')}**")
                     st.markdown("---")
-                    st.markdown("#### ⏱️ Thời gian phân hủy tự nhiên")
+                    st.markdown("#### Thời gian phân hủy tự nhiên")
                     st.markdown(f"**{info.get('decomposition_time', 'N/A')}**")
 
             with rec_col2:
                 with st.container(border=True):
-                    st.markdown("#### 📋 Hướng dẫn xử lý đúng cách")
+                    st.markdown("#### Hướng dẫn xử lý đúng cách")
                     instructions = info.get('instructions', [])
                     if instructions:
                         for inst in instructions:
@@ -487,12 +481,12 @@ def main():
                         st.write("Không có hướng dẫn chi tiết.")
 
             with st.container(border=True):
-                st.markdown("#### 🌍 Tác động Môi trường & Giá trị Tái chế")
+                st.markdown("#### Tác động môi trường & Giá trị tái chế")
                 st.markdown(f"{info.get('impact', 'N/A')}")
 
         else:
-            st.info("👆 Vui lòng kéo thả file ảnh ở tab bên trên hoặc bấm vào tab Camera để chụp ảnh rác!")
-            st.markdown("### 📦 12 Nhóm rác được hỗ trợ:")
+            st.info("Vui lòng tải ảnh lên hoặc bấm vào tab Camera để chụp ảnh rác.")
+            st.markdown("### 12 Nhóm rác được hỗ trợ:")
             cols = st.columns(4)
             for idx, (cls_key, cls_val) in enumerate(RECYCLING_INFO.items()):
                 col_target = cols[idx % 4]
@@ -503,7 +497,7 @@ def main():
     # TAB 2: NHẬT KÝ SỐNG XANH
     # =========================================================================
     with tab_journal:
-        st.markdown("### 🌱 Nhật Ký Sống Xanh (Lịch Sử Của Bạn)")
+        st.markdown("### Nhật ký phân loại rác")
         st.caption("Theo dõi thói quen phân loại rác thải và hành trình chung tay bảo vệ môi trường của bạn.")
 
         df_history = load_predictions_history(limit=100)
@@ -526,22 +520,22 @@ def main():
             # Friendly Metrics Cards
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
-                st.metric("🎯 Đã phân loại", f"{total_items} món rác")
+                st.metric("Tổng số đã phân loại", f"{total_items} món")
             with col_m2:
                 pct_str = f"chiếm {top_count/total_items*100:.0f}%" if total_items > 0 else ""
-                st.metric("🏆 Xuất hiện nhiều nhất", top_trash, f"{top_count} lần ({pct_str})")
+                st.metric("Nhóm xuất hiện nhiều nhất", top_trash, f"{top_count} lần ({pct_str})")
             with col_m3:
-                st.metric("♻️ Tỷ lệ tái chế / hữu cơ", f"{recycle_pct:.1f}%")
+                st.metric("Tỷ lệ tái chế / hữu cơ", f"{recycle_pct:.1f}%")
 
             st.markdown("---")
 
             # Chart
-            st.markdown("##### 📊 Thống kê các nhóm rác bạn hay gặp:")
+            st.markdown("##### Phân bố các nhóm rác đã quét:")
             st.bar_chart(df_history["Loại rác"].value_counts())
 
             # Table
             st.markdown("---")
-            st.markdown("##### 📋 Chi tiết các lần phân loại gần nhất:")
+            st.markdown("##### Chi tiết các lần phân loại gần nhất:")
             display_cols = ["Thời gian", "Loại rác", "Thùng rác quy định", "Nhóm phân loại", "Độ tin cậy"]
             st.dataframe(
                 df_history[display_cols],
@@ -552,13 +546,13 @@ def main():
             # Green Eco Tip
             st.markdown("---")
             st.success("""
-            💡 **Mẹo sống xanh từ EcoSort:**
-            - **Rác tái chế (Nhựa, Kim loại, Hộp sữa):** Hãy tráng sạch và để ráo nước trước khi bỏ vào thùng tái chế để bảo vệ chất lượng vật liệu tái chế.
-            - **Pin & Rác điện tử:** Tuyệt đối không bỏ chung vào thùng rác gia đình. Hãy gom vào hộp riêng và mang đến các điểm thu gom siêu thị/trường học.
-            - **Rác hữu cơ:** Có thể tận dụng bã cà phê và vỏ hoa quả làm phân bón tự nhiên cho cây cảnh trong nhà!
+            **Mẹo sống xanh từ EcoSort:**
+            - **Rác tái chế (Nhựa, Kim loại, Hộp giấy):** Hãy tráng sạch và để ráo nước trước khi bỏ vào thùng tái chế để bảo vệ chất lượng vật liệu tái chế.
+            - **Pin & Rác điện tử:** Không bỏ chung vào thùng rác gia đình. Hãy gom vào hộp riêng và mang đến các điểm thu gom siêu thị hoặc trường học.
+            - **Rác hữu cơ:** Có thể tận dụng bã cà phê và vỏ rau củ làm phân bón tự nhiên cho cây trồng.
             """)
         else:
-            st.info("👋 Bạn chưa phân loại món rác nào. Hãy chuyển sang **Tab 1** để chụp hoặc tải ảnh rác đầu tiên nhé!")
+            st.info("Chưa có lượt phân loại nào. Hãy chuyển sang Tab phân loại để chụp hoặc tải ảnh rác đầu tiên.")
 
     # Footer
     st.markdown("---")
