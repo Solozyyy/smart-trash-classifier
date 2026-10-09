@@ -166,7 +166,6 @@ def load_predictions_history(limit: int = 50) -> pd.DataFrame:
                             "Độ tin cậy": f"{record.get('output', {}).get('confidence', 0.0)*100:.1f}%",
                             "Tự tin": "✅ Có" if record.get("output", {}).get("is_confident") else "⚠️ Thấp",
                             "Độ trễ (ms)": record.get("output", {}).get("inference_time_ms", 0.0),
-                            "Trace ID": record.get("trace_id", "N/A"),
                         })
                     except Exception:
                         pass
@@ -193,17 +192,9 @@ def load_recent_api_logs(limit: int = 40) -> list:
 def main():
     st.markdown('<p class="main-header">♻️ EcoSort AI - Smart Trash Classifier</p>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="sub-header">Phân loại rác thải tự động • Giải thích AI (Grad-CAM) • Giám sát Arize Phoenix Cloud</p>',
+        '<p class="sub-header">Phân loại rác thải tự động • Hướng dẫn xử lý & tái chế • Giải thích AI (Grad-CAM)</p>',
         unsafe_allow_html=True
     )
-
-    tracing_status = get_tracing_status()
-    phoenix_connected = tracing_status.get("provider") == "phoenix" and tracing_status.get("active")
-    phoenix_project = tracing_status.get("project") or _PHOENIX_PROJECT
-    masked_key = tracing_status.get("key_masked") or (_PHOENIX_API_KEY[:6] + "..." + _PHOENIX_API_KEY[-4:] if len(_PHOENIX_API_KEY) > 10 else "***")
-
-    # Direct URL to Phoenix project Traces tab with 7-day filter window
-    phoenix_traces_url = "https://app.phoenix.arize.com/s/hnkhoa04/projects/UHJvamVjdDo0/traces?timeRangeKey=7d"
 
     # Sidebar settings and info
     with st.sidebar:
@@ -233,35 +224,20 @@ def main():
         )
 
         st.markdown("---")
-        st.header("🔭 Cloud Observability")
-        if phoenix_connected:
-            st.success(f"🟢 **Arize Phoenix Cloud:** Đã kết nối (`{masked_key}`)")
-            st.caption(f"Project: `{phoenix_project}`")
-            st.link_button("🌐 Mở Traces trên Phoenix Cloud", phoenix_traces_url, use_container_width=True)
-        elif _PHOENIX_API_KEY:
-            st.warning("⚠️ **Arize Phoenix:** Đang kết nối...")
-            if tracing_status.get("error"):
-                st.caption(f"Lỗi: `{tracing_status.get('error')}`")
-            st.link_button("🌐 Mở Phoenix Cloud Dashboard", phoenix_traces_url, use_container_width=True)
-        else:
-            st.info("🟡 **Local Tracing Mode**")
-            st.caption("Chưa có PHOENIX_API_KEY, xuất trace cục bộ.")
-
-        st.markdown("---")
         st.header("📊 Thông tin Mô hình")
         st.write("""
         - **Kiến trúc:** ResNet50 (Transfer Learning)
         - **Độ chính xác:** ~93.63% (12 nhóm rác)
-        - **Tracing:** OpenTelemetry + Arize Phoenix
+        - **XAI:** Grad-CAM Visual Heatmap
         """)
 
         st.markdown("---")
-        st.caption("EcoSort AI System | Production MLOps")
+        st.caption("EcoSort AI System • Smart Waste Classifier")
 
-    # Main Tabs: 1. Classifier, 2. Monitoring & Logs
+    # Main Tabs: 1. Classifier, 2. Stats & History
     tab_classifier, tab_monitoring = st.tabs([
         "♻️ Phân Loại Rác & XAI",
-        "📊 Giám Sát & Nhật Ký (MLOps Dashboard)"
+        "📈 Thống Kê & Lịch Sử"
     ])
 
     # Load model
@@ -424,18 +400,6 @@ def main():
 
                 st.caption(f"⚡ Thời gian suy luận: **{inf_time:.1f} ms**")
 
-                # Trace Link Badge
-                if trace_id:
-                    st.markdown(f"""
-                    <div class="trace-badge">
-                        <div>
-                            <span style="font-size: 0.85rem; font-weight: bold; color: #008080;">🔭 Arize Phoenix Trace ID:</span><br>
-                            <code style="font-size: 0.95rem; font-weight: bold;">{trace_id}</code>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.link_button("🔍 Mở Traces trên Phoenix Cloud (7 Ngày)", phoenix_traces_url, use_container_width=True)
-
             # Grad-CAM Section
             if enable_gradcam and overlay_img is not None:
                 st.markdown("---")
@@ -511,19 +475,11 @@ def main():
                     st.markdown(f"- **{cls_val['vietnamese_name']}** (`{cls_key}`)")
 
     # =========================================================================
-    # TAB 2: GIÁM SÁT & NHẬT KÝ (MLOPS DASHBOARD)
+    # TAB 2: THỐNG KÊ & LỊCH SỬ
     # =========================================================================
     with tab_monitoring:
-        st.markdown("### 📊 MLOps Dashboard & Nhật Ký Kiểm Toán")
-        st.markdown(f"""
-        Toàn bộ tương tác phân loại rác được đồng bộ thời gian thực lên **[Arize Phoenix Cloud]({phoenix_traces_url})**.
-        Bạn có thể xem các chỉ số tổng hợp tại đây hoặc mở trực tiếp trang quản trị Cloud.
-        """)
-
-        col_top_a, col_top_b = st.columns([3, 1])
-        with col_top_b:
-            if phoenix_connected or _PHOENIX_API_KEY:
-                st.link_button("🚀 Mở Arize Phoenix Traces (Cloud)", phoenix_traces_url, use_container_width=True)
+        st.markdown("### 📈 Thống Kê & Lịch Sử Hoạt Động")
+        st.caption("Tổng hợp thống kê và lịch sử các lượt phân loại rác thải đã thực hiện.")
 
         # 1. Load history DataFrame
         df_history = load_predictions_history(limit=100)
@@ -555,9 +511,9 @@ def main():
                 latency_series = df_history[["Độ trễ (ms)"]].reset_index(drop=True)
                 st.line_chart(latency_series)
 
-            # Audit Table
+            # History Table
             st.markdown("---")
-            st.markdown("##### 📋 Lịch sử kiểm toán gần nhất (Audit Trail Table)")
+            st.markdown("##### 📋 Lịch sử phân loại gần nhất")
             st.dataframe(
                 df_history,
                 use_container_width=True,
@@ -566,25 +522,22 @@ def main():
         else:
             st.info("Chưa có lượt dự đoán nào được ghi nhận. Hãy qua Tab 1 để tải ảnh phân loại rác!")
 
-        # 2. System Hardware Metrics
-        st.markdown("---")
-        st.markdown("##### 💻 Sức khỏe Tài nguyên Máy chủ (System Health)")
-        try:
-            proc = psutil.Process()
-            mem_mb = proc.memory_info().rss / (1024 * 1024)
-            cpu_pct = proc.cpu_percent(interval=None)
-            total_sys_ram = psutil.virtual_memory().percent
-        except Exception:
-            mem_mb, cpu_pct, total_sys_ram = 0, 0, 0
+        # 2. System Hardware & Diagnostic (collapsed for admin)
+        with st.expander("🛠️ Chuẩn đoán & Thông tin Kỹ thuật Máy chủ", expanded=False):
+            try:
+                proc = psutil.Process()
+                mem_mb = proc.memory_info().rss / (1024 * 1024)
+                cpu_pct = proc.cpu_percent(interval=None)
+                total_sys_ram = psutil.virtual_memory().percent
+            except Exception:
+                mem_mb, cpu_pct, total_sys_ram = 0, 0, 0
 
-        h1, h2, h3 = st.columns(3)
-        h1.metric("Bộ nhớ RAM Process", f"{mem_mb:.1f} MB")
-        h2.metric("Mức chiếm CPU Process", f"{cpu_pct:.1f}%")
-        h3.metric("RAM Hệ thống", f"{total_sys_ram:.1f}%")
+            h1, h2, h3 = st.columns(3)
+            h1.metric("Bộ nhớ RAM Process", f"{mem_mb:.1f} MB")
+            h2.metric("Mức chiếm CPU Process", f"{cpu_pct:.1f}%")
+            h3.metric("RAM Hệ thống", f"{total_sys_ram:.1f}%")
 
-        # 3. Live Log Viewer
-        st.markdown("---")
-        with st.expander("📜 Xem nhật ký ứng dụng trực tiếp (Live Logs - logs/api.log)", expanded=False):
+            st.markdown("---")
             log_lines = load_recent_api_logs(limit=30)
             if log_lines:
                 for line in reversed(log_lines):
@@ -596,7 +549,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; opacity: 0.7; font-size: 0.9rem;">
-        EcoSort Project • ResNet50 Transfer Learning + Grad-CAM XAI • OpenTelemetry & Arize Phoenix
+        EcoSort AI • Phân loại rác thông minh với Trí tuệ nhân tạo (ResNet50 & Grad-CAM)
     </div>
     """, unsafe_allow_html=True)
 
