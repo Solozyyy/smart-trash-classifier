@@ -33,9 +33,23 @@ if hasattr(st, "secrets"):
 from download_model import ensure_model_exists
 from src.dataset import CLASSES
 from src.model import load_trained_model, predict_image, generate_gradcam_heatmap
-from src.utils import RECYCLING_INFO, create_gradcam_overlay, evaluate_uncertainty
+import importlib
 from opentelemetry import trace
-from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids, flush_tracing
+
+try:
+    import api.tracing
+    importlib.reload(api.tracing)
+    from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids, flush_tracing
+except Exception:
+    from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids
+    def flush_tracing(timeout_millis: int = 3000):
+        provider = trace.get_tracer_provider()
+        if hasattr(provider, "force_flush"):
+            try:
+                provider.force_flush(timeout_millis)
+            except Exception:
+                pass
+
 from api.logger import logger, log_prediction_audit, APP_LOG_FILE, PREDICTION_LOG_FILE
 from api.metrics import record_inference_metrics
 
