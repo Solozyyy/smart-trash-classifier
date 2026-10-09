@@ -263,10 +263,20 @@ def main():
     # =========================================================================
     with tab_classifier:
         st.markdown("### 📥 Chọn phương thức cung cấp ảnh")
+
+        st.info("""
+        📸 **Mẹo chụp ảnh để AI nhận diện chuẩn xác nhất:**
+        - 🔍 **Chụp cận cảnh:** Đưa vật thể lại gần sao cho rác chiếm phần lớn (**60 – 70%**) khung hình.
+        - 🧹 **Hạn chế nền rối:** Đặt vật thể trên mặt bàn hoặc sàn trơn, tránh để lẫn nhiều đồ đạc khác vào khung hình.
+        - ✋ **Tránh che khuất:** Nếu cầm trên tay, hạn chế để các ngón tay che lấp các đặc điểm nhận dạng của vật thể.
+        - 💡 **Đủ ánh sáng:** Giữ camera ổn định, chụp ở nơi đủ sáng, tránh ảnh bị mờ hoặc ngược sáng.
+        """, icon="💡")
+
         input_tab1, input_tab2 = st.tabs(["📁 Tải ảnh từ thiết bị (Upload File)", "📷 Chụp trực tiếp bằng Camera"])
 
         image_source = None
         with input_tab1:
+            st.caption("👉 *Nên chọn ảnh chụp cận cảnh, góc nhìn rõ nét của vật thể.*")
             uploaded_file = st.file_uploader(
                 "Kéo & thả ảnh rác thải vào đây (JPG, JPEG, PNG)",
                 type=['jpg', 'jpeg', 'png'],
@@ -276,7 +286,12 @@ def main():
                 image_source = uploaded_file
 
         with input_tab2:
-            camera_file = st.camera_input("Chụp ảnh vật thể rác qua Camera / Webcam", key="camera_input")
+            st.caption("👉 *Đưa vật thể lại gần, căn giữa khung hình camera và bấm nút chụp.*")
+            camera_file = st.camera_input(
+                "Chụp ảnh vật thể rác qua Camera / Webcam",
+                key="camera_input",
+                help="Đưa vật thể lại gần camera và căn giữa khung hình"
+            )
             if camera_file is not None:
                 image_source = camera_file
 
