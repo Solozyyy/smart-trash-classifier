@@ -12,13 +12,21 @@ services:
       - "8000:8000"
     environment:
       - TF_ENABLE_ONEDNN_OPTS=0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=tempo:4317
+      - OTEL_EXPORTER_OTLP_INSECURE=true
+      - OTEL_SERVICE_NAME=ecosort-api
     volumes:
       - ./weights:/app/weights:ro
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      - tempo
+    networks:
+      - ecosort_network
 
   # Streamlit Web App Frontend
   web:
@@ -36,3 +44,63 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    networks:
+      - ecosort_network
+
+  # Prometheus - Metrics Collector
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ecosort_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ecosort_network
+
+  # Grafana Tempo - Distributed Tracing Backend
+  tempo:
+    image: grafana/tempo:latest
+    container_name: ecosort_tempo
+    restart: unless-stopped
+    command: [ "-config.file=/etc/tempo.yml" ]
+    volumes:
+      - ./monitoring/tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo query port
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      - ecosort_network
+
+  # Grafana - Real-time Visualization Dashboard (Metrics & Traces)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ecosort_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - ecosort_network
+
+volumes:
+  tempo_data:
+
+networks:
+  ecosort_network:
+    driver: bridge
