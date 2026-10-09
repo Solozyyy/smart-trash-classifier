@@ -2,6 +2,7 @@
 
 # Environment
 .env
+.streamlit/secrets.toml
 
 # Data
 data/
@@ -21,6 +22,11 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs & Monitoring
+logs/
+*.log
+*.jsonl
 
 # Notebooks (working files - not for Git)
 notebooks/garbage_classifier.ipynb
