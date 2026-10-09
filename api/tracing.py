@@ -47,7 +47,7 @@ def setup_tracing(service_name: str = "ecosort-app", service_version: str = "1.2
                 project_name=phoenix_project,
                 endpoint=phoenix_endpoint,
                 api_key=phoenix_api_key,
-                batch=True,
+                batch=False,
                 set_global_tracer_provider=True,
             )
             _TRACER = trace.get_tracer(service_name, service_version)
@@ -149,3 +149,13 @@ def trace_span(name: str, attributes: Optional[Dict[str, Any]] = None):
             span.record_exception(exc)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             raise
+
+
+def flush_tracing(timeout_millis: int = 3000):
+    """Force flush active spans to collector"""
+    provider = trace.get_tracer_provider()
+    if hasattr(provider, "force_flush"):
+        try:
+            provider.force_flush(timeout_millis)
+        except Exception:
+            pass
