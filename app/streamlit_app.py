@@ -34,6 +34,9 @@ from download_model import ensure_model_exists
 from src.dataset import CLASSES
 from src.model import load_trained_model, predict_image, generate_gradcam_heatmap
 import importlib
+import src.utils
+importlib.reload(src.utils)
+from src.utils import RECYCLING_INFO, create_gradcam_overlay, evaluate_uncertainty
 from opentelemetry import trace
 
 try:
