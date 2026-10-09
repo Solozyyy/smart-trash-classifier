@@ -1,0 +1,248 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "⚡ Key Operational & ML Performance Indicators",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Total Predictions",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(ecosort_model_predictions_total) or vector(0)",
+          "legendFormat": "Predictions",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Requests",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ecosort_http_active_requests or vector(0)",
+          "legendFormat": "In-Flight",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Model Latency (p95)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "(histogram_quantile(0.95, sum(rate(ecosort_model_inference_duration_seconds_bucket[5m])) by (le)) * 1000) or vector(0)",
+          "legendFormat": "P95 Latency",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 300 }
+            ]
+          },
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Uncertain Predictions (< Threshold)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(ecosort_model_uncertainty_total) or vector(0)",
+          "legendFormat": "Uncertain Count",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "📊 API Traffic & Latency (RED Method)",
+      "type": "row"
+    },
+    {
+      "id": 5,
+      "title": "Request Throughput by Endpoint & Status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(ecosort_http_requests_total[1m])) by (endpoint, status_code)",
+          "legendFormat": "{{endpoint}} ({{status_code}})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 15 },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "API Request Duration (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(ecosort_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p50 Median",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(ecosort_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(ecosort_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p99 Tail",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineInterpolation": "smooth" },
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "🤖 MLOps: Predictions Distribution & Data Drift",
+      "type": "row"
+    },
+    {
+      "id": 7,
+      "title": "Predictions Count by Waste Class",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(ecosort_model_predictions_total) by (predicted_class)",
+          "legendFormat": "{{predicted_class}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Process Memory Consumption (RSS)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ecosort_system_memory_usage_bytes / (1024 * 1024)",
+          "legendFormat": "Memory RSS (MB)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 20 },
+          "unit": "decmbytes"
+        }
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ecosort", "mlops", "fastapi", "resnet50"],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m"]
+  },
+  "timezone": "browser",
+  "title": "EcoSort - Waste Classification MLOps",
+  "uid": "ecosort-mlops-dashboard",
+  "version": 1
+}

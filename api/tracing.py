@@ -23,21 +23,54 @@ logger = logging.getLogger("ecosort-tracing")
 
 _TRACER: Optional[trace.Tracer] = None
 _IS_INITIALIZED = False
+_TRACING_STATUS: Dict[str, Any] = {
+    "active": False,
+    "provider": "none",
+    "project": "",
+    "endpoint": "",
+    "key_masked": "",
+    "error": None,
+}
 
 
-def setup_tracing(service_name: str = "ecosort-app", service_version: str = "1.2.0") -> trace.Tracer:
+def get_tracing_status() -> Dict[str, Any]:
+    """Return active tracing backend details for health checks and UI display."""
+    return _TRACING_STATUS.copy()
+
+
+def setup_tracing(
+    service_name: str = "ecosort-app",
+    service_version: str = "1.2.0",
+    api_key: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    project_name: Optional[str] = None,
+) -> trace.Tracer:
     """
     Initialize OpenTelemetry TracerProvider.
     Automatically prioritizes Arize Phoenix Cloud if PHOENIX_API_KEY is set;
     otherwise falls back to Grafana Tempo OTLP gRPC.
     """
-    global _TRACER, _IS_INITIALIZED
+    global _TRACER, _IS_INITIALIZED, _TRACING_STATUS
     if _IS_INITIALIZED and _TRACER is not None:
         return _TRACER
 
-    phoenix_api_key = os.getenv("PHOENIX_API_KEY")
-    phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT")
-    phoenix_project = os.getenv("PHOENIX_PROJECT_NAME", "ecosort-trash-classifier")
+    phoenix_api_key = api_key or os.getenv("PHOENIX_API_KEY")
+    phoenix_endpoint = endpoint or os.getenv("PHOENIX_COLLECTOR_ENDPOINT")
+    phoenix_project = project_name or os.getenv("PHOENIX_PROJECT_NAME", "ecosort-trash-classifier")
+
+    if phoenix_api_key:
+        phoenix_api_key = str(phoenix_api_key).strip("'\" \t\r\n")
+    if phoenix_endpoint:
+        phoenix_endpoint = str(phoenix_endpoint).strip("'\" \t\r\n")
+    if phoenix_project:
+        phoenix_project = str(phoenix_project).strip("'\" \t\r\n")
+
+    # Ensure Phoenix collector endpoint points to /v1/traces
+    if phoenix_endpoint:
+        if "phoenix" in phoenix_endpoint.lower() and not phoenix_endpoint.endswith("/v1/traces"):
+            phoenix_endpoint = f"{phoenix_endpoint.rstrip('/')}/v1/traces"
+    elif phoenix_api_key:
+        phoenix_endpoint = "https://app.phoenix.arize.com/s/hnkhoa04/v1/traces"
 
     # 1. Check for Arize Phoenix Cloud
     if phoenix_api_key:
@@ -52,9 +85,19 @@ def setup_tracing(service_name: str = "ecosort-app", service_version: str = "1.2
             )
             _TRACER = trace.get_tracer(service_name, service_version)
             _IS_INITIALIZED = True
+            masked_key = f"{phoenix_api_key[:6]}...{phoenix_api_key[-4:]}" if len(phoenix_api_key) > 10 else "***"
+            _TRACING_STATUS = {
+                "active": True,
+                "provider": "phoenix",
+                "project": phoenix_project,
+                "endpoint": phoenix_endpoint,
+                "key_masked": masked_key,
+                "error": None,
+            }
             logger.info(f"OpenTelemetry successfully registered with Arize Phoenix Cloud [Project: {phoenix_project}]")
             return _TRACER
         except Exception as exc:
+            _TRACING_STATUS["error"] = str(exc)
             logger.warning(f"Could not connect to Arize Phoenix Cloud: {exc}. Trying fallback OTLP exporter...")
 
     # 2. Fallback to Local Grafana Tempo
@@ -95,6 +138,14 @@ def setup_tracing(service_name: str = "ecosort-app", service_version: str = "1.2
     trace.set_tracer_provider(provider)
     _TRACER = trace.get_tracer(service_name, service_version)
     _IS_INITIALIZED = True
+    _TRACING_STATUS = {
+        "active": True,
+        "provider": "tempo" if "tempo" in otel_endpoint else "local_otlp",
+        "project": service_name,
+        "endpoint": otel_endpoint,
+        "key_masked": "",
+        "error": _TRACING_STATUS.get("error"),
+    }
     return _TRACER
 
 

@@ -24,11 +24,31 @@ for p in [REPO_ROOT, APP_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-# Sync secrets.toml to os.environ for Streamlit Cloud deployment
-if hasattr(st, "secrets"):
-    for k in ["PHOENIX_API_KEY", "PHOENIX_COLLECTOR_ENDPOINT", "PHOENIX_PROJECT_NAME"]:
-        if k in st.secrets and not os.environ.get(k):
-            os.environ[k] = str(st.secrets[k])
+# Helper to retrieve config from Streamlit Secrets or Environment
+def get_config_val(key: str, default: str = "") -> str:
+    val = ""
+    try:
+        if hasattr(st, "secrets") and key in st.secrets:
+            val = str(st.secrets[key])
+    except Exception:
+        pass
+    if not val:
+        val = os.getenv(key, default)
+    if val:
+        val = str(val).strip("'\" \t\r\n")
+    return val or default
+
+_PHOENIX_API_KEY = get_config_val("PHOENIX_API_KEY")
+_PHOENIX_COLLECTOR = get_config_val("PHOENIX_COLLECTOR_ENDPOINT", "https://app.phoenix.arize.com/s/hnkhoa04/v1/traces")
+_PHOENIX_PROJECT = get_config_val("PHOENIX_PROJECT_NAME", "ecosort-trash-classifier")
+
+# Sync to os.environ as fallback
+if _PHOENIX_API_KEY:
+    os.environ["PHOENIX_API_KEY"] = _PHOENIX_API_KEY
+if _PHOENIX_COLLECTOR:
+    os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = _PHOENIX_COLLECTOR
+if _PHOENIX_PROJECT:
+    os.environ["PHOENIX_PROJECT_NAME"] = _PHOENIX_PROJECT
 
 from download_model import ensure_model_exists
 from src.dataset import CLASSES
@@ -42,7 +62,7 @@ from opentelemetry import trace
 try:
     import api.tracing
     importlib.reload(api.tracing)
-    from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids, flush_tracing
+    from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids, flush_tracing, get_tracing_status
 except Exception:
     from api.tracing import setup_tracing, trace_span, get_current_trace_and_span_ids
     def flush_tracing(timeout_millis: int = 3000):
@@ -52,12 +72,19 @@ except Exception:
                 provider.force_flush(timeout_millis)
             except Exception:
                 pass
+    def get_tracing_status():
+        return {"active": False, "provider": "none"}
 
 from api.logger import logger, log_prediction_audit, APP_LOG_FILE, PREDICTION_LOG_FILE
 from api.metrics import record_inference_metrics
 
 # Initialize Distributed Tracing (Arize Phoenix Cloud or Local Tempo)
-setup_tracing(service_name="ecosort-streamlit-app")
+setup_tracing(
+    service_name="ecosort-streamlit-app",
+    api_key=_PHOENIX_API_KEY,
+    endpoint=_PHOENIX_COLLECTOR,
+    project_name=_PHOENIX_PROJECT,
+)
 
 # Streamlit Page Config
 st.set_page_config(
@@ -170,10 +197,13 @@ def main():
         unsafe_allow_html=True
     )
 
-    phoenix_key = os.getenv("PHOENIX_API_KEY")
-    phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "https://app.phoenix.arize.com")
-    phoenix_project = os.getenv("PHOENIX_PROJECT_NAME", "ecosort-trash-classifier")
-    phoenix_ui_url = phoenix_endpoint if "app.phoenix.arize.com" in phoenix_endpoint else "https://app.phoenix.arize.com"
+    tracing_status = get_tracing_status()
+    phoenix_connected = tracing_status.get("provider") == "phoenix" and tracing_status.get("active")
+    phoenix_project = tracing_status.get("project") or _PHOENIX_PROJECT
+    masked_key = tracing_status.get("key_masked") or (_PHOENIX_API_KEY[:6] + "..." + _PHOENIX_API_KEY[-4:] if len(_PHOENIX_API_KEY) > 10 else "***")
+
+    # Direct URL to Phoenix project Traces tab with 7-day filter window
+    phoenix_traces_url = "https://app.phoenix.arize.com/s/hnkhoa04/projects/UHJvamVjdDo0/traces?timeRangeKey=7d"
 
     # Sidebar settings and info
     with st.sidebar:
@@ -204,10 +234,15 @@ def main():
 
         st.markdown("---")
         st.header("🔭 Cloud Observability")
-        if phoenix_key:
-            st.success("🟢 **Arize Phoenix Cloud:** Đã kết nối")
+        if phoenix_connected:
+            st.success(f"🟢 **Arize Phoenix Cloud:** Đã kết nối (`{masked_key}`)")
             st.caption(f"Project: `{phoenix_project}`")
-            st.link_button("🌐 Mở Phoenix Cloud Dashboard", phoenix_ui_url, use_container_width=True)
+            st.link_button("🌐 Mở Traces trên Phoenix Cloud", phoenix_traces_url, use_container_width=True)
+        elif _PHOENIX_API_KEY:
+            st.warning("⚠️ **Arize Phoenix:** Đang kết nối...")
+            if tracing_status.get("error"):
+                st.caption(f"Lỗi: `{tracing_status.get('error')}`")
+            st.link_button("🌐 Mở Phoenix Cloud Dashboard", phoenix_traces_url, use_container_width=True)
         else:
             st.info("🟡 **Local Tracing Mode**")
             st.caption("Chưa có PHOENIX_API_KEY, xuất trace cục bộ.")
@@ -399,7 +434,7 @@ def main():
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.link_button("🔍 Mở Trace này trên Phoenix Cloud", phoenix_ui_url, use_container_width=True)
+                    st.link_button("🔍 Mở Traces trên Phoenix Cloud (7 Ngày)", phoenix_traces_url, use_container_width=True)
 
             # Grad-CAM Section
             if enable_gradcam and overlay_img is not None:
@@ -481,14 +516,14 @@ def main():
     with tab_monitoring:
         st.markdown("### 📊 MLOps Dashboard & Nhật Ký Kiểm Toán")
         st.markdown(f"""
-        Toàn bộ tương tác phân loại rác được đồng bộ thời gian thực lên **[Arize Phoenix Cloud]({phoenix_ui_url})**.
+        Toàn bộ tương tác phân loại rác được đồng bộ thời gian thực lên **[Arize Phoenix Cloud]({phoenix_traces_url})**.
         Bạn có thể xem các chỉ số tổng hợp tại đây hoặc mở trực tiếp trang quản trị Cloud.
         """)
 
         col_top_a, col_top_b = st.columns([3, 1])
         with col_top_b:
-            if phoenix_key:
-                st.link_button("🚀 Mở Arize Phoenix Cloud", phoenix_ui_url, use_container_width=True)
+            if phoenix_connected or _PHOENIX_API_KEY:
+                st.link_button("🚀 Mở Arize Phoenix Traces (Cloud)", phoenix_traces_url, use_container_width=True)
 
         # 1. Load history DataFrame
         df_history = load_predictions_history(limit=100)
